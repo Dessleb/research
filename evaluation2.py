@@ -5,28 +5,38 @@ from tabulate import tabulate
 import pandas as pd
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report, precision_recall_curve, f1_score, auc, recall_score, accuracy_score, precision_score, roc_auc_score, roc_curve
 import numpy as np
+from IPython.display import display
 
 
 
-def grouped_bar_chart(models, metric):
-    x = np.arange(len(models))  # the label locations
-    width = 0.25  # the width of the bars
-    multiplier = 0
+def stacked_bar_chart(models, metric):
+    x = np.arange(len(models)) 
+    width = 0.5  # Wider bars generally look better for stacked charts
+    
+    fig, ax = plt.subplots(layout='constrained', figsize=(10, 6))
 
-    fig, ax = plt.subplots(layout='constrained')
+    # Initialize the "bottom" of the bars to zero for all models
+    bottom = np.zeros(len(models))
 
     for attribute, measurement in metric.items():
-        offset = width * multiplier
-        rects = ax.bar(x + offset, measurement, width, label=attribute)
-        ax.bar_label(rects, padding=3)
-        multiplier += 1
+        # Plot the bar starting from the 'bottom' array
+        rects = ax.bar(x, measurement, width, label=attribute, bottom=bottom)
+        
+        # Optional: Add text labels in the center of each segment
+        ax.bar_label(rects, label_type='center', fmt='%.0f', padding=0)
+        
+        # Update the 'bottom' so the next metric sits on top of this one
+        bottom += measurement
 
-    # Add some text for labels, title and custom x-axis tick labels, etc.
-    ax.set_ylabel('Length (mm)')
-    ax.set_title('Evaluation Metrics of models for detecting diabetes')
-    ax.set_xticks(x + width, models)
-    ax.legend(loc='upper left', ncols=3)
-    ax.set_ylim(0, 150)
+    ax.set_ylabel('Total Score Sum')
+    ax.set_title('Comparison of Models Based on Metrics')
+    ax.set_xticks(x, models)
+    
+    # Move legend outside right so it doesn't cover the bars
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    
+    # Remove fixed ylim or set it high enough to hold the sum of all metrics
+    # ax.set_ylim(0, 500) 
 
     plt.show()
 
@@ -271,235 +281,57 @@ def specificity(y_true, y_pred):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def plot_model_metrics(model, X_test, y_test, class_labels=None, title="Model Performance Metrics"):
+def print_metrics_table(model_names, metrics_dict):
+    # 1. Create a DataFrame first (it's the easiest way to organize the data)
+    df = pd.DataFrame(metrics_dict)
     
-#     # Args:
-#     #     model: Trained scikit-learn model object (must have .predict() and .predict_proba()).
-#     #     X_test (np.array or pd.DataFrame): Test features.
-#     #     y_test (np.array or pd.Series): True labels for the test data.
-#     #     class_labels (list, optional): List of names for the classes. 
-#     #                                     Defaults to ['Class 0', 'Class 1'].
-#     #     title (str, optional): Main title for the plot.
-#     # """
+    # 2. Add the models as the first column (not index, for tabulate printing)
+    df.insert(0, "Model Name", model_names)
     
-#     # --- 1. Setup and Predictions ---
-#     print(f"--- Calculating metrics for: {title} ---")
-    
-#     # Get class predictions
-#     y_pred = model.predict(X_test)
-    
-#     # Get probabilities for the positive class (assuming binary classification)
-#     try:
-#         # Check if the model has predict_proba
-#         if hasattr(model, 'predict_proba'):
-#             y_proba = model.predict_proba(X_test)[:, 1]
-#         elif hasattr(model, 'decision_function'):
-#             # For SVC without probability=True, we can use decision_function
-#             # but we won't calculate ROC in this case for simplicity, as it's less reliable
-#             print("Warning: Model uses decision_function, but predict_proba is preferred for robust ROC/AUC.")
-#             return
-#         else:
-#             print("Warning: Model does not have predict_proba. Cannot calculate ROC/AUC.")
-#             return
-
-#     except AttributeError:
-#         print("Error: Model prediction failed.")
-#         return
-
-#     # Set default labels if none are provided
-#     if class_labels is None:
-#         class_labels = ['Class 0', 'Class 1']
-
-#     # Create a figure with two subplots side-by-side
-#     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-#     plt.suptitle(title, fontsize=16, fontweight='bold')
-    
-    
-#     # --- 2. Confusion Matrix Plot ---
-    
-#     # Calculate the confusion matrix
-#     cm = confusion_matrix(y_test, y_pred)
-    
-#     # Calculate key metrics for display
-#     accuracy = np.mean(y_test == y_pred)
-#     # Handle division by zero for precision/recall calculation
-#     precision = cm[1, 1] / (cm[1, 1] + cm[0, 1]) if (cm[1, 1] + cm[0, 1]) > 0 else 0
-#     recall = cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
-#     f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-
-#     # Plot the matrix using seaborn
-#     sns.heatmap(cm, 
-#                 annot=True, 
-#                 fmt='d', 
-#                 cmap='Blues', 
-#                 cbar=False,
-#                 linewidths=.5,
-#                 linecolor='black',
-#                 square=True,
-#                 ax=axes[0],
-#                 xticklabels=class_labels,
-#                 yticklabels=class_labels)
-    
-#     axes[0].set_title('Confusion Matrix', fontsize=14)
-#     axes[0].set_xlabel(f'Predicted Label\n\nMetrics: Acc={accuracy:.2f}, Prec={precision:.2f}, Rec={recall:.2f}, F1={f1_score:.2f}')
-#     axes[0].set_ylabel('True Label')
-    
-#     # Adjust rotation for better readability
-#     plt.setp(axes[0].get_xticklabels(), rotation=0)
-#     plt.setp(axes[0].get_yticklabels(), rotation=90)
-    
-    
-#     # --- 3. AUC-ROC Curve Plot ---
-    
-#     # Calculate ROC curve metrics (False Positive Rate, True Positive Rate, Thresholds)
-#     fpr, tpr, thresholds = roc_curve(y_test, y_proba)
-    
-#     # Calculate the Area Under the Curve (AUC)
-#     roc_auc = roc_auc_score(y_test, y_proba)
-    
-#     # Plot the ROC curve
-#     axes[1].plot(fpr, tpr, color='darkorange', lw=2, 
-#                  label=f'ROC curve (AUC = {roc_auc:.4f})')
-    
-#     # Plot the 45-degree diagonal line (random guess line)
-#     axes[1].plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Guess')
-    
-#     axes[1].set_xlim([0.0, 1.0])
-#     axes[1].set_ylim([0.0, 1.05])
-#     axes[1].set_xlabel('False Positive Rate (1 - Specificity)')
-#     axes[1].set_ylabel('True Positive Rate (Recall/Sensitivity)')
-#     axes[1].set_title('Receiver Operating Characteristic (ROC) Curve', fontsize=14)
-#     axes[1].legend(loc="lower right")
-#     axes[1].grid(True)
-    
-#     # --- 4. Final Display ---
-#     plt.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust layout to make room for suptitle
-#     # plt.show() # NOTE: Commented out for Canvas environment
-
-# # --- New Function for Multi-Model ROC Comparison ---
-
-# def plot_roc_comparison(models, X_test, y_test, title="Model ROC Curve Comparison"):
-#     """
-#     Plots the ROC curves for multiple models on a single graph for comparison.
-
-#     This function is designed for binary classification problems.
-
-#     Args:
-#         models (list): A list of tuples, where each tuple is (model_name, trained_model_object).
-#                        The model object must have a .predict_proba() method.
-#         X_test (np.array or pd.DataFrame): Test features.
-#         y_test (np.array or pd.Series): True labels for the test data.
-#         title (str, optional): Title for the plot.
-#     """
-#     plt.figure(figsize=(10, 8))
-    
-#     # Plot the 45-degree diagonal line (random guess line)
-#     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Guess')
-
-#     # Iterate through models and plot ROC curves
-#     for name, model in models:
-#         try:
-#             # Get probabilities for the positive class
-#             # Note: If you use XGBoost, ensure you import and use it instead of GradientBoostingClassifier
-#             y_proba = model.predict_proba(X_test)[:, 1]
+    # 3. Format the numeric columns to strings with '%'
+    # We apply this to all columns except 'Model Name'
+    for col in df.columns:
+        if col != "Model Name":
+            df[col] = df[col].apply(lambda x: f"{x:.2f}%")
             
-#             # Calculate ROC curve metrics
-#             fpr, tpr, _ = roc_curve(y_test, y_proba)
-#             roc_auc = roc_auc_score(y_test, y_proba)
-            
-#             # Plot the curve
-#             plt.plot(fpr, tpr, lw=2, 
-#                      label=f'{name} (AUC = {roc_auc:.4f})')
+    # 4. Print using tabulate
+    print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
+
+def plot_multimodel_roc(y_test, probas_dict):
+ 
+    plt.figure(figsize=(10, 8))
+    
+    # Define some line styles/colors to distinguish models
+    colors = ['blue', 'green', 'red']
+    linestyles = ['-', '--', '-.']
+    
+    for i, (model_name, probabilities) in enumerate(probas_dict.items()):
+        # Calculate FPR and TPR
+        fpr, tpr, _ = roc_curve(y_test, probabilities)
         
-#         except AttributeError:
-#             print(f"Warning: Model '{name}' does not have predict_proba and was skipped for ROC comparison.")
-#             continue
+        # Calculate Area Under Curve (AUC)
+        roc_auc = auc(fpr, tpr)
+        
+        # Plot the curve
+        # We cycle through colors/styles to make them distinct
+        color = colors[i % len(colors)]
+        style = linestyles[i % len(linestyles)]
+        
+        plt.plot(fpr, tpr, color=color, linestyle=style, lw=2,
+                 label=f'{model_name} (AUC = {roc_auc:.3f})')
 
-#     plt.xlim([0.0, 1.0])
-#     plt.ylim([0.0, 1.05])
-#     plt.xlabel('False Positive Rate (1 - Specificity)')
-#     plt.ylabel('True Positive Rate (Recall/Sensitivity)')
-#     plt.title(title, fontsize=16, fontweight='bold')
-#     plt.legend(loc="lower right", title="Models")
-#     plt.grid(True)
-#     plt.show() # NOTE: For display in the user environment
+    # Plot the "Random Guess" diagonal line
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle=':', label='Random Guess')
 
-# # --- Example Usage for Diabetes Detection Models ---
-
-# if __name__ == '__main__':
-#     # 1. Generate Synthetic Data for Binary Classification (Simulating Diabetes Detection)
-#     # Replace this with your actual diabetes dataset loading and preprocessing!
-#     X, y = make_classification(n_samples=500, 
-#                                n_features=8, 
-#                                n_informative=5, 
-#                                n_redundant=1,
-#                                n_classes=2,
-#                                weights=[0.8, 0.2], # Simulate imbalanced data (more non-diabetic)
-#                                flip_y=0.05, 
-#                                random_state=42)
+    # Formatting
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate (1 - Specificity)', fontsize=12)
+    plt.ylabel('True Positive Rate (Sensitivity)', fontsize=12)
+    plt.title('ROC Curve Comparison', fontsize=15)
+    plt.legend(loc="lower right", fontsize=12)
+    plt.grid(alpha=0.3)
     
-#     # 2. Split data into training and testing sets
-#     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    
-#     # 3. Initialize and train the three models (SVC, XGBoost stand-in, RF)
-#     # IMPORTANT: Ensure your SVC is trained with probability=True
-    
-#     # a. Support Vector Classifier (SVC) - Must use probability=True for ROC
-#     svc_model = SVC(probability=True, random_state=42)
-#     svc_model.fit(X_train, y_train)
-    
-#     # b. Random Forest (RF)
-#     rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
-#     rf_model.fit(X_train, y_train)
+    plt.show()
 
-#     # c. Gradient Boosting Classifier (Used as XGBoost stand-in, as it's a built-in scikit-learn ensemble)
-#     # If you have the actual 'xgboost' library installed, replace this with: 
-#     # from xgboost import XGBClassifier; gb_model = XGBClassifier(random_state=42); gb_model.fit(X_train, y_train)
-#     gb_model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42)
-#     gb_model.fit(X_train, y_train)
-    
-#     # 4. Prepare model list for comparison
-#     models_to_compare = [
-#         ('SVC', svc_model),
-#         ('Random Forest (RF)', rf_model),
-#         ('Gradient Boosting (XGB)', gb_model)
-#     ]
 
-#     # --- Use Case 1: Individual Model Deep Dive (e.g., Random Forest) ---
-#     print("\n[FIRST PLOT: Individual Model Deep Dive (Random Forest)]")
-#     # This generates a Confusion Matrix and ROC curve for one model
-#     plot_model_metrics(
-#         rf_model, 
-#         X_test, 
-#         y_test, 
-#         class_labels=['No Diabetes', 'Diabetes'],
-#         title="Random Forest Model Metrics for Diabetes Detection"
-#     )
-
-#     # --- Use Case 2: Multi-Model ROC Comparison ---
-#     print("\n[SECOND PLOT: Multi-Model ROC Comparison]")
-#     # This generates a single plot comparing the ROC curves of all three models
-#     plot_roc_comparison(
-#         models_to_compare, 
-#         X_test, 
-#         y_test, 
-#         title="Comparative ROC Analysis for Diabetes Detection Models"
-#     )
